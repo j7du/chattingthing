@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: my-chat-server 
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python chat_server_bot.py"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.4
+      - key: BOT_TOKEN
+        fromEnvironmentVariable: BOT_TOKEN
+      - key: LOG_CHANNEL_ID
+        fromEnvironmentVariable: LOG_CHANNEL_ID
