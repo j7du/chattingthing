@@ -1,4 +1,4 @@
-# chat_server_bot.py
+# chat_server_bot.py (Correct Version for Web Client)
 import socket
 import threading
 import discord
@@ -37,25 +37,28 @@ class ChatBot(discord.Client):
             return "\n".join(messages)
         return "History channel not found."
 
-clients = {}
-
 def handle_client_connection(client_socket, address):
+    """
+    Handles a single, short-lived connection from the web client.
+    """
     try:
-        # The web client doesn't do a formal handshake, it just sends payloads.
-        # This function handles one single request and then closes.
+        # The web client doesn't do a formal handshake, it just sends a payload.
         payload = client_socket.recv(1024).decode('utf-8')
         
         if payload.strip().lower() == '/history':
+            # A client is asking for the history
             future = asyncio.run_coroutine_threadsafe(bot.get_history(), bot.loop)
-            history = future.result()
+            history = future.result() # Wait for the bot to fetch history
             client_socket.send(history.encode('utf-8'))
-        elif payload: # If it's not history, it's a message to post
-            # The web client now sends the already-formatted message.
+        elif payload: 
+            # If it's not a history request, it must be a message to post.
+            # The web client sends the already-formatted message.
             asyncio.run_coroutine_threadsafe(bot.post_message(payload), bot.loop)
 
     except Exception as e:
-        print(f"Error handling client: {e}")
+        print(f"Error handling a client request: {e}")
     finally:
+        # This connection is over, so we close it.
         client_socket.close()
 
 
@@ -67,18 +70,21 @@ def start_socket_server():
     print(f"[Socket Server] Listening for clients on port {SERVER_PORT}")
     while True:
         client_sock, address = server.accept()
-        # Each connection is handled in its own thread because it's short-lived
+        # Each connection is short, so we give it its own thread and move on.
         thread = threading.Thread(target=handle_client_connection, args=(client_sock, address))
         thread.start()
 
 if __name__ == "__main__":
     if not BOT_TOKEN or not LOG_CHANNEL_ID:
-        raise ValueError("BOT_TOKEN and LOG_CHANNEL_ID must be set.")
+        # This safety check is still important
+        raise ValueError("BOT_TOKEN and LOG_CHANNEL_ID must be set in the Render Environment.")
 
+    # Start the socket server in its own thread so it doesn't block the bot
     socket_thread = threading.Thread(target=start_socket_server)
     socket_thread.daemon = True
     socket_thread.start()
     
-    intents = discord.Intents.default()
+    # Start the Discord bot in the main thread
+    intents = discord.Intents(messages=True, guilds=True, message_content=True)
     bot = ChatBot(intents=intents)
     bot.run(BOT_TOKEN)
